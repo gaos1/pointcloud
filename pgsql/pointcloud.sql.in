@@ -13,7 +13,8 @@ CREATE OR REPLACE FUNCTION PC_SchemaIsValid(schemaxml text)
 	LANGUAGE 'c' IMMUTABLE STRICT;
 
 -- Metadata table describing contents of pcpoints
-CREATE TABLE IF NOT EXISTS pointcloud_formats (
+DROP TABLE IF EXISTS pointcloud_formats;
+CREATE TABLE pointcloud_formats (
 	pcid INTEGER PRIMARY KEY
 		-- PCID == 0 is unknown
 		-- PCID > 2^16 is reserved to leave space in typmod
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS pointcloud_formats (
 	srid INTEGER, -- REFERENCES spatial_ref_sys(srid)
 	schema TEXT
 		CHECK ( PC_SchemaIsValid(schema) )
-);
+) distributed replicated;
 
 -- Register pointcloud_formats table so the contents are included in pg_dump output
 SELECT pg_catalog.pg_extension_config_dump('pointcloud_formats', '');
@@ -48,7 +49,7 @@ CREATE OR REPLACE FUNCTION pc_typmod_pcid(typmod integer)
 
 -- Return the script version number
 CREATE OR REPLACE FUNCTION pc_script_version()
-	RETURNS text AS $$ SELECT '@POINTCLOUD_VERSION@'::text $$
+	RETURNS text AS $$ SELECT '1.1.0'::text $$
 	LANGUAGE 'sql' IMMUTABLE STRICT;
 
 -- Return the library version number
@@ -317,18 +318,18 @@ CREATE OR REPLACE FUNCTION _PC_PatchStat(p pcpatch, statno int)
 
 -- Availability: 1.1.0
 CREATE OR REPLACE FUNCTION PC_PatchMin(p pcpatch)
-	RETURNS pcpoint AS $$ SELECT _PC_PatchStat(p, 0) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS pcpoint AS $$ BEGIN SELECT _PC_PatchStat(p, 0); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 -- Availability: 1.1.0
 CREATE OR REPLACE FUNCTION PC_PatchMax(p pcpatch)
-	RETURNS pcpoint AS $$ SELECT _PC_PatchStat(p, 1) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS pcpoint AS $$ BEGIN SELECT _PC_PatchStat(p, 1); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 -- Availability: 1.1.0
 CREATE OR REPLACE FUNCTION PC_PatchAvg(p pcpatch)
-	RETURNS pcpoint AS $$ SELECT _PC_PatchStat(p, 2) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS pcpoint AS $$ BEGIN SELECT _PC_PatchStat(p, 2); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 -- Availability: 1.1.0
 -- @param statno 0:min 1:max 2:avg
@@ -337,16 +338,16 @@ CREATE OR REPLACE FUNCTION _PC_PatchStat(p pcpatch, statno int, attr text)
 	LANGUAGE 'c' IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION PC_PatchMin(p pcpatch, attr text)
-	RETURNS numeric AS $$ SELECT _PC_PatchStat(p, 0, attr) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS numeric AS $$ BEGIN SELECT _PC_PatchStat(p, 0, attr); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION PC_PatchMax(p pcpatch, attr text)
-	RETURNS numeric AS $$ SELECT _PC_PatchStat(p, 1, attr) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS numeric AS $$ BEGIN SELECT _PC_PatchStat(p, 1, attr); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION PC_PatchAvg(p pcpatch, attr text)
-	RETURNS numeric AS $$ SELECT _PC_PatchStat(p, 2, attr) $$
-	LANGUAGE 'sql' IMMUTABLE STRICT;
+	RETURNS numeric AS $$ BEGIN SELECT _PC_PatchStat(p, 2, attr); END $$
+	LANGUAGE plpgsql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION PC_FilterLessThan(p pcpatch, attr text, v1 float8 default 0.0, v2 float8 default 0.0, mode int4 default 0)
 	RETURNS pcpatch AS 'MODULE_PATHNAME', 'pcpatch_filter'
